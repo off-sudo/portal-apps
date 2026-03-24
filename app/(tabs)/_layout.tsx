@@ -30,7 +30,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
         }}
       />
-      {/* <Tabs.Screen
+      <Tabs.Screen
         name="bookings"
         options={{
           title: 'Bookings',
@@ -38,7 +38,7 @@ export default function TabLayout() {
             <IconSymbol size={28} name="list.bullet.rectangle.fill" color={color} />
           ),
         }}
-      /> */}
+      />
       <Tabs.Screen
         name="rides"
         options={{

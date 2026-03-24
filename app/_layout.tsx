@@ -45,6 +45,7 @@ function RouteGuard() {
         <Stack.Screen name="login" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="signup" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="verify-otp" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="bookings/[id]" options={{ animation: 'slide_from_right' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
