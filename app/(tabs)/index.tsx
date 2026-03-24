@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -7,24 +8,68 @@ import {
   Text,
   TextInput,
   View,
-  Animated,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { fetchActiveBooking, formatBookingDate } from '@/lib/booking-tracking';
+import type { BookingSummary } from '@/types/bookings';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
 
   const [dropText, setDropText] = useState('');
+  const [activeBooking, setActiveBooking] = useState<BookingSummary | null>(null);
+  const [loadingBooking, setLoadingBooking] = useState(true);
   const isDark = colorScheme === 'dark';
 
   const fullName = user?.user_metadata?.full_name?.split(' ')[0] || 'there';
+
+  const loadActiveBooking = useCallback(async () => {
+    if (!user?.id) {
+      setActiveBooking(null);
+      setLoadingBooking(false);
+      return;
+    }
+
+    try {
+      const booking = await fetchActiveBooking(user.id);
+      setActiveBooking(booking);
+    } catch (error) {
+      console.error('Home active booking fetch failed:', error);
+      setActiveBooking(null);
+    } finally {
+      setLoadingBooking(false);
+    }
+  }, [user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setLoadingBooking(true);
+      loadActiveBooking();
+    }, [loadActiveBooking])
+  );
+
+  const handleActiveBookingPress = () => {
+    if (activeBooking?.id) {
+      router.push(`/bookings/${activeBooking.id}` as never);
+      return;
+    }
+
+    router.push('/(tabs)/bookings' as never);
+  };
+
+  const bannerTitle = activeBooking ? 'Active booking' : 'Track bookings';
+  const bannerSubtitle = activeBooking
+    ? `${activeBooking.pickup_location || 'Pickup'} → ${activeBooking.dropoff_location || 'Drop'} · ${
+        activeBooking.eta_minutes != null
+          ? `${activeBooking.eta_minutes} min away`
+          : `${formatBookingDate(activeBooking.pickup_date)} · ${activeBooking.pickup_time || 'Time TBD'}`
+      }`
+    : 'Open Bookings to see live status and ETA';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0a0a0a' : '#f5f5f5' }]}>
@@ -110,12 +155,19 @@ export default function HomeScreen() {
         {/* Active Booking Banner */}
         <Pressable
           style={[styles.activeBanner, { backgroundColor: isDark ? '#1a1a1a' : '#fff', borderColor: '#FF5722' }]}
-          onPress={() => router.push('/(tabs)/bookings' as never)}>
+          onPress={handleActiveBookingPress}>
           <View style={styles.activeBannerLeft}>
             <View style={styles.liveDot} />
             <View>
-              <Text style={[styles.bannerTitle, { color: isDark ? '#fff' : '#111' }]}>Active booking</Text>
-              <Text style={[styles.bannerSub, { color: isDark ? '#666' : '#888' }]}>Tambaram → Velachery · 3 min away</Text>
+              <Text style={[styles.bannerTitle, { color: isDark ? '#fff' : '#111' }]}>{bannerTitle}</Text>
+              {loadingBooking ? (
+                <View style={styles.bannerLoadingRow}>
+                  <ActivityIndicator size="small" color="#FF5722" />
+                  <Text style={[styles.bannerSub, { color: isDark ? '#666' : '#888' }]}>Checking latest status…</Text>
+                </View>
+              ) : (
+                <Text style={[styles.bannerSub, { color: isDark ? '#666' : '#888' }]}>{bannerSubtitle}</Text>
+              )}
             </View>
           </View>
           <Text style={styles.bannerArrow}>›</Text>
@@ -204,5 +256,6 @@ const styles = StyleSheet.create({
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00C853' },
   bannerTitle: { fontSize: 14, fontWeight: '700' },
   bannerSub: { fontSize: 12, marginTop: 2 },
+  bannerLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
   bannerArrow: { fontSize: 22, color: '#FF5722', fontWeight: '300' },
 });

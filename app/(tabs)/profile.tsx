@@ -26,9 +26,9 @@ type ProfileData = {
 type BookingItem = {
   id: string;
   pickup_location: string | null;
-  drop_location: string | null;
-  booking_date: string | null;
-  time_slot: string | null;
+  dropoff_location: string | null;
+  pickup_date: string | null;
+  pickup_time: string | null;
   status: string | null;
   created_at: string | null;
   vehicle_type?: string | null;
@@ -40,10 +40,10 @@ type TabKey = 'active' | 'past';
 const ACTIVE_STATUSES = ['pending', 'confirmed', 'in_progress'];
 
 const DEMO_BOOKINGS: BookingItem[] = [
-  { id: '1', pickup_location: 'Tambaram', drop_location: 'Velachery', booking_date: new Date().toISOString().slice(0, 10), time_slot: '10:30 AM', status: 'in_progress', created_at: new Date().toISOString(), vehicle_type: 'Mini Truck', fare: 450 },
-  { id: '2', pickup_location: 'Pallavaram', drop_location: 'Ambattur', booking_date: new Date().toISOString().slice(0, 10), time_slot: '2:00 PM', status: 'confirmed', created_at: new Date().toISOString(), vehicle_type: 'SUV Cab', fare: 340 },
-  { id: '3', pickup_location: 'Chromepet', drop_location: 'T. Nagar', booking_date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), time_slot: '5:45 PM', status: 'completed', created_at: new Date(Date.now() - 86400000).toISOString(), vehicle_type: 'Sedan', fare: 189 },
-  { id: '4', pickup_location: 'Selaiyur', drop_location: 'Guindy', booking_date: new Date(Date.now() - 172800000).toISOString().slice(0, 10), time_slot: '9:00 AM', status: 'cancelled', created_at: new Date(Date.now() - 172800000).toISOString(), vehicle_type: 'Auto', fare: 80 },
+  { id: '1', pickup_location: 'Tambaram', dropoff_location: 'Velachery', pickup_date: new Date().toISOString().slice(0, 10), pickup_time: '10:30:00', status: 'in_progress', created_at: new Date().toISOString(), vehicle_type: 'Mini Truck', fare: 450 },
+  { id: '2', pickup_location: 'Pallavaram', dropoff_location: 'Ambattur', pickup_date: new Date().toISOString().slice(0, 10), pickup_time: '14:00:00', status: 'confirmed', created_at: new Date().toISOString(), vehicle_type: 'SUV Cab', fare: 340 },
+  { id: '3', pickup_location: 'Chromepet', dropoff_location: 'T. Nagar', pickup_date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), pickup_time: '17:45:00', status: 'completed', created_at: new Date(Date.now() - 86400000).toISOString(), vehicle_type: 'Sedan', fare: 189 },
+  { id: '4', pickup_location: 'Selaiyur', dropoff_location: 'Guindy', pickup_date: new Date(Date.now() - 172800000).toISOString().slice(0, 10), pickup_time: '09:00:00', status: 'cancelled', created_at: new Date(Date.now() - 172800000).toISOString(), vehicle_type: 'Auto', fare: 80 },
 ];
 
 function getVehicleIcon(vehicleType?: string | null): string {
@@ -122,9 +122,9 @@ export default function ProfileScreen() {
     if (!user?.id) { setBookings(DEMO_BOOKINGS); setBookingsLoading(false); return; }
     const { data } = await supabase
       .from('bookings')
-      .select('id, pickup_location, drop_location, booking_date, time_slot, status, created_at, vehicle_type, fare')
+      .select('id, pickup_location, dropoff_location, pickup_date, pickup_time, status, created_at, vehicle_type, fare')
       .eq('user_id', user.id)
-      .order('booking_date', { ascending: false, nullsFirst: false })
+      .order('pickup_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
     const result = (data as BookingItem[]) ?? [];
     setBookings(result.length > 0 ? result : DEMO_BOOKINGS);
@@ -169,7 +169,7 @@ export default function ProfileScreen() {
     const past: BookingItem[]   = [];
     bookings.forEach((b) => {
       const s = (b.status || '').toLowerCase();
-      const upcoming = !!b.booking_date && b.booking_date >= today;
+      const upcoming = !!b.pickup_date && b.pickup_date >= today;
       if (s === 'completed' || s === 'cancelled' || (!upcoming && !ACTIVE_STATUSES.includes(s))) {
         past.push(b);
       } else {
@@ -347,10 +347,10 @@ function BookingCard({
         </View>
         <View style={styles.cardMid}>
           <Text style={[styles.routeText, { color: text }]} numberOfLines={1}>
-            {item.pickup_location || 'Pickup'} → {item.drop_location || 'Drop'}
+            {item.pickup_location || 'Pickup'} → {item.dropoff_location || 'Drop'}
           </Text>
           <Text style={[styles.cardMeta, { color: muted }]}>
-            {formatDate(item.booking_date)} · {item.time_slot || 'N/A'} · {item.vehicle_type || 'Vehicle'}
+            {formatDate(item.pickup_date)} · {item.pickup_time || 'N/A'} · {item.vehicle_type || 'Vehicle'}
           </Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
