@@ -67,7 +67,7 @@ export default function HomeScreen() {
     ? `${activeBooking.pickup_location || 'Pickup'} → ${activeBooking.dropoff_location || 'Drop'} · ${
         activeBooking.eta_minutes != null
           ? `${activeBooking.eta_minutes} min away`
-          : `${formatBookingDate(activeBooking.pickup_date)} · ${activeBooking.pickup_time || 'Time TBD'}`
+          : `${formatBookingDate(activeBooking.booking_date)} · ${activeBooking.time_slot || 'Slot TBD'}`
       }`
     : 'Open Bookings to see live status and ETA';
 

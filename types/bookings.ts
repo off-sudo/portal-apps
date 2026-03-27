@@ -12,12 +12,15 @@ export type BookingLocationPoint = {
 };
 
 export type BookingSummary = {
+  pickup_time: string;
+  pickup_date: string | null;
+  dropoff_location: string;
   id: string;
   user_id: string | null;
   pickup_location: string | null;
-  dropoff_location: string | null;
-  pickup_date: string | null;
-  pickup_time: string | null;
+  drop_location: string | null;
+  booking_date: string | null;
+  time_slot: string | null;
   status: string | null;
   created_at: string | null;
   vehicle_type: string | null;
