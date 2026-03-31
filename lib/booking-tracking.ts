@@ -1,3 +1,4 @@
+// lib/booking-tracking.ts
 import { supabase } from '@/lib/supabase';
 import type {
   ActiveBookingTracking,
@@ -28,7 +29,8 @@ const BOOKING_SELECT = `
   pickup_lat,
   pickup_lng,
   drop_lat,
-  drop_lng
+  drop_lng,
+  service_type
 `;
 
 const BOOKING_LOCATION_SELECT = `
@@ -49,15 +51,11 @@ function asString(value: unknown): string | null {
 }
 
 function asNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
   if (typeof value === 'string' && value.trim().length > 0) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
   }
-
   return null;
 }
 
@@ -65,7 +63,11 @@ function asTrackingStatus(value: unknown): BookingTrackingStatus | null {
   if (value === 'not_started' || value === 'live' || value === 'paused' || value === 'completed') {
     return value;
   }
+  return null;
+}
 
+function asServiceType(value: unknown): 'portal' | 'ride' | null {
+  if (value === 'portal' || value === 'ride') return value;
   return null;
 }
 
@@ -90,6 +92,7 @@ export function normalizeBooking(row: RawRow): BookingSummary {
     pickup_lng: asNumber(row.pickup_lng),
     drop_lat: asNumber(row.drop_lat),
     drop_lng: asNumber(row.drop_lng),
+    service_type: asServiceType(row.service_type),
   };
 }
 
@@ -108,13 +111,14 @@ export function normalizeLocation(row: RawRow): BookingLocationPoint {
 
 export function getVehicleIcon(vehicleType?: string | null): string {
   const value = (vehicleType || '').toLowerCase();
-
-  if (value.includes('truck') || value.includes('mini')) return '🚛';
+  if (value.includes('truck') || value.includes('mini truck')) return '🚛';
   if (value.includes('pickup')) return '🚚';
   if (value.includes('large')) return '🏗';
   if (value.includes('suv') || value.includes('innova')) return '🚙';
   if (value.includes('auto')) return '🛺';
   if (value.includes('bike') || value.includes('moto')) return '🏍';
+  if (value.includes('sedan') || value.includes('dzire') || value.includes('cab')) return '🚕';
+  if (value.includes('mini') || value.includes('baleno') || value.includes('swift')) return '🚗';
   return '🚕';
 }
 
@@ -122,60 +126,35 @@ export function getStatusStyle(
   status: string | null,
   trackingStatus?: BookingTrackingStatus | null
 ): { bg: string; color: string; label: string } {
-  const normalizedStatus = (status || '').toLowerCase();
+  const s = (status || '').toLowerCase();
+  if (s === 'in_progress' || trackingStatus === 'live') return { bg: '#00C85318', color: '#00C853', label: 'LIVE' };
+  if (s === 'confirmed') return { bg: '#1a73e815', color: '#1a73e8', label: 'CONFIRMED' };
+  if (s === 'pending') return { bg: '#FFB30018', color: '#FFB300', label: 'PENDING' };
+  if (s === 'completed') return { bg: '#ffffff10', color: '#666', label: 'DONE' };
+  if (s === 'cancelled') return { bg: '#FF572215', color: '#FF5722', label: 'CANCELLED' };
+  if (trackingStatus === 'paused') return { bg: '#ffffff10', color: '#666', label: 'PAUSED' };
+  return { bg: '#ffffff10', color: '#666', label: s ? s.replace('_', ' ').toUpperCase() : 'UNKNOWN' };
+}
 
-  if (normalizedStatus === 'in_progress' || trackingStatus === 'live') {
-    return { bg: '#00C85318', color: '#00C853', label: 'LIVE' };
-  }
-
-  if (normalizedStatus === 'confirmed') {
-    return { bg: '#1a73e815', color: '#1a73e8', label: 'CONFIRMED' };
-  }
-
-  if (normalizedStatus === 'pending') {
-    return { bg: '#FFB30018', color: '#FFB300', label: 'PENDING' };
-  }
-
-  if (normalizedStatus === 'completed') {
-    return { bg: '#ffffff10', color: '#666', label: 'DONE' };
-  }
-
-  if (normalizedStatus === 'cancelled') {
-    return { bg: '#FF572215', color: '#FF5722', label: 'CANCELLED' };
-  }
-
-  if (trackingStatus === 'paused') {
-    return { bg: '#ffffff10', color: '#666', label: 'PAUSED' };
-  }
-
-  return {
-    bg: '#ffffff10',
-    color: '#666',
-    label: normalizedStatus ? normalizedStatus.replace('_', ' ').toUpperCase() : 'UNKNOWN',
-  };
+export function getServiceTag(serviceType: 'portal' | 'ride' | null): { label: string; bg: string; color: string } {
+  if (serviceType === 'ride') return { label: '🚕 Ride', bg: '#1a73e812', color: '#1a73e8' };
+  return { label: '🚛 Portal', bg: '#FF572212', color: '#FF5722' };
 }
 
 export function formatBookingDate(dateStr: string | null): string {
   if (!dateStr) return 'N/A';
-
   const date = new Date(dateStr);
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-
   if (date.toDateString() === today.toDateString()) return 'Today';
   if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
-
   return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
 export function formatLastUpdatedAt(dateStr: string | null | undefined): string {
   if (!dateStr) return 'Waiting for first location';
-
-  return new Date(dateStr).toLocaleTimeString('en-IN', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return new Date(dateStr).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 }
 
 export function isActiveBooking(booking: BookingSummary): boolean {
@@ -209,27 +188,29 @@ export const DEMO_BOOKINGS: BookingSummary[] = [
     pickup_lng: 80.1000,
     drop_lat: 12.9762,
     drop_lng: 80.2214,
+    service_type: 'portal',
   },
   {
-    id: 'demo-confirmed-booking',
+    id: 'demo-ride-booking',
     user_id: 'demo-user',
     pickup_location: 'Pallavaram',
-    dropoff_location: 'Ambattur',
+    dropoff_location: 'Anna Nagar',
     pickup_date: new Date().toISOString().slice(0, 10),
     pickup_time: '14:00:00',
     status: 'confirmed',
     created_at: new Date().toISOString(),
-    vehicle_type: 'Pickup',
-    fare: 340,
-    driver_name: 'Priya S.',
+    vehicle_type: 'Sedan',
+    fare: 189,
+    driver_name: 'Rajan K.',
     driver_phone: '+91 90000 22222',
-    vehicle_label: 'TN22 BK 7733',
+    vehicle_label: 'TN09 AX 4421',
     tracking_status: 'not_started',
-    eta_minutes: 12,
+    eta_minutes: 6,
     pickup_lat: 12.9675,
     pickup_lng: 80.1491,
-    drop_lat: 13.1143,
-    drop_lng: 80.1548,
+    drop_lat: 13.0850,
+    drop_lng: 80.2101,
+    service_type: 'ride',
   },
   {
     id: 'demo-completed-booking',
@@ -251,6 +232,7 @@ export const DEMO_BOOKINGS: BookingSummary[] = [
     pickup_lng: 80.1462,
     drop_lat: 13.0418,
     drop_lng: 80.2337,
+    service_type: 'ride',
   },
 ];
 
@@ -261,9 +243,7 @@ export async function fetchUserBookings(userId: string): Promise<BookingSummary[
     .eq('user_id', userId)
     .order('pickup_date', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false });
-
   if (error) throw error;
-
   return ((data as RawRow[] | null) ?? []).map(normalizeBooking);
 }
 
@@ -277,9 +257,7 @@ export async function fetchActiveBooking(userId: string): Promise<BookingSummary
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-
   if (error) throw error;
-
   return data ? normalizeBooking(data as RawRow) : null;
 }
 
@@ -290,9 +268,7 @@ export async function fetchBookingById(userId: string, bookingId: string): Promi
     .eq('user_id', userId)
     .eq('id', bookingId)
     .maybeSingle();
-
   if (error) throw error;
-
   return data ? normalizeBooking(data as RawRow) : null;
 }
 
@@ -304,21 +280,13 @@ export async function fetchLatestLocation(bookingId: string): Promise<BookingLoc
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-
   if (error) throw error;
-
   return data ? normalizeLocation(data as RawRow) : null;
 }
 
 export async function fetchActiveBookingTracking(userId: string): Promise<ActiveBookingTracking | null> {
   const booking = await fetchActiveBooking(userId);
-
   if (!booking) return null;
-
   const currentLocation = await fetchLatestLocation(booking.id);
-
-  return {
-    ...booking,
-    current_location: currentLocation,
-  };
+  return { ...booking, current_location: currentLocation };
 }

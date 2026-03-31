@@ -1,3 +1,4 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,11 +11,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { Region } from 'react-native-maps';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   fetchBookingById,
@@ -27,6 +26,7 @@ import {
   normalizeBooking,
   normalizeLocation,
 } from '@/lib/booking-tracking';
+import { supabase } from '@/lib/supabase';
 import type { BookingLocationPoint, BookingSummary } from '@/types/bookings';
 
 const DEFAULT_REGION: Region = {
